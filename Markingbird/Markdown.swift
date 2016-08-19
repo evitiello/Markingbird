@@ -220,8 +220,8 @@ public struct Markdown {
     private var _encodeProblemUrlCharacters = false
 
     private enum TokenType {
-        case Text
-        case Tag
+        case text
+        case tag
     }
 
     private struct Token {
@@ -296,7 +296,7 @@ public struct Markdown {
     /// - parameter text: Markdown-format text to be transformed to HTML
     ///
     /// - returns: HTML-format text
-    public mutating func transform(text: String) -> String {
+    public mutating func transform(_ text: String) -> String {
         // The order in which other subs are called here is
         // essential. Link and image substitutions need to happen before
         // EscapeSpecialChars(), so that any *'s or _'s in the a
@@ -319,7 +319,7 @@ public struct Markdown {
     }
 
     /// Perform transformations that form block-level tags like paragraphs, headers, and list items.
-    private mutating func runBlockGamut(text: String, unhash: Bool = true) -> String {
+    private mutating func runBlockGamut(_ text: String, unhash: Bool = true) -> String {
         var text = doHeaders(text)
         text = doHorizontalRules(text)
         text = doLists(text)
@@ -338,7 +338,7 @@ public struct Markdown {
     }
 
     /// Perform transformations that occur *within* block-level tags like paragraphs, headers, and list items.
-    private func runSpanGamut(text: String) -> String {
+    private func runSpanGamut(_ text: String) -> String {
         var text = doCodeSpans(text)
         text = escapeSpecialCharsWithinTagAttributes(text)
         text = escapeBackslashes(text)
@@ -351,8 +351,8 @@ public struct Markdown {
         // delimiters in inline links like [this](<url>).
         text = doAutoLinks(text)
 
-        text = text.stringByReplacingOccurrencesOfString(Markdown.autoLinkPreventionMarker,
-            withString: "://")
+        text = text.replacingOccurrences(of: Markdown.autoLinkPreventionMarker,
+            with: "://")
 
         text = encodeAmpsAndAngles(text)
         text = doItalicsAndBold(text)
@@ -369,7 +369,7 @@ public struct Markdown {
 
     /// splits on two or more newlines, to form "paragraphs";
     /// each paragraph is then unhashed (if it is a hash and unhashing isn't turned off) or wrapped in HTML p tag
-    private func formParagraphs(text: String, unhash: Bool = true) -> String
+    private func formParagraphs(_ text: String, unhash: Bool = true) -> String
     {
         // split on two or more newlines
         var grafs = Markdown._newlinesMultiple.split(
@@ -410,7 +410,7 @@ public struct Markdown {
             }
         }
 
-        return grafs.joinWithSeparator("\n\n")
+        return grafs.joined(separator: "\n\n")
     }
 
     private mutating func setup() {
@@ -418,9 +418,9 @@ public struct Markdown {
         // from other articles when generating a page which contains more than
         // one article (e.g. an index page that shows the N most recent
         // articles):
-        _urls.removeAll(keepCapacity: false)
-        _titles.removeAll(keepCapacity: false)
-        _htmlBlocks.removeAll(keepCapacity: false)
+        _urls.removeAll(keepingCapacity: false)
+        _titles.removeAll(keepingCapacity: false)
+        _htmlBlocks.removeAll(keepingCapacity: false)
         _listLevel = 0
     }
 
@@ -441,7 +441,7 @@ public struct Markdown {
                 "[^\\[\\]]+      # Anything other than brackets",
                 "|",
                 "\\["
-                ].joinWithSeparator("\n"), _nestDepth) +
+                ].joined(separator: "\n"), _nestDepth) +
                 repeatString(" \\])*", _nestDepth)
         }
         return _nestedBracketsPattern
@@ -460,7 +460,7 @@ public struct Markdown {
                 "[^()\\s]+      # Anything other than parens or whitespace",
                 "|",
                 "\\("
-                ].joinWithSeparator("\n"), _nestDepth) +
+                ].joined(separator: "\n"), _nestDepth) +
                 repeatString(" \\))*", _nestDepth)
         }
         return _nestedParensPattern
@@ -483,26 +483,27 @@ public struct Markdown {
         "    \\p{Z}*",
         ")?                       # title is optional",
         "(?:\\n+|\\Z)"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.Multiline.union(RegexOptions.IgnorePatternWhitespace))
 
     /// Strips link definitions from text, stores the URLs and titles in hash references.
     ///
     /// ^[id]: url "optional title"
-    private mutating func stripLinkDefinitions(text: String) -> String
+    private mutating func stripLinkDefinitions(_ text: String) -> String
     {
-        return Markdown._linkDef.replace(text) { self.linkEvaluator($0) }
+        var selfCopy = self
+        return Markdown._linkDef.replace(text) { selfCopy.linkEvaluator($0) }
     }
 
-    private mutating func linkEvaluator(match: Match) -> String
+    private mutating func linkEvaluator(_ match: Match) -> String
     {
         let linkID = match.valueOfGroupAtIndex(1) as String
         _urls[linkID] = encodeAmpsAndAngles(match.valueOfGroupAtIndex(2) as String)
 
         let group3Value = match.valueOfGroupAtIndex(3)
         if group3Value.length != 0 {
-            _titles[linkID] = group3Value.stringByReplacingOccurrencesOfString("\"",
-                withString: "&quot")
+            _titles[linkID] = group3Value.replacingOccurrences(of: "\"",
+                with: "&quot")
         }
 
         return ""
@@ -544,7 +545,7 @@ public struct Markdown {
             "    '[^']*'                 # text inside single quotes (tolerate >)",
             "  )*",
             ")?"
-            ].joinWithSeparator("\n")
+            ].joined(separator: "\n")
 
         let content = repeatString([
             "(?>",
@@ -555,7 +556,7 @@ public struct Markdown {
             "(?>",
             "    />",
             "|",
-            "    >"].joinWithSeparator("\n"),
+            "    >"].joined(separator: "\n"),
             _nestDepth) +   // end of opening tag
             ".*?" +             // last level nested tag content
             repeatString([
@@ -564,10 +565,10 @@ public struct Markdown {
                 "  |                             ",
                 "  <(?!/\\2\\s*>           # other tags with a different name",
                 "  )",
-                ")*"].joinWithSeparator("\n"),
+                ")*"].joined(separator: "\n"),
                 _nestDepth)
 
-        let content2 = content.stringByReplacingOccurrencesOfString("\\2", withString: "\\3")
+        let content2 = content.replacingOccurrences(of: "\\2", with: "\\3")
 
         // First, look for nested blocks, e.g.:
         // 	<div>
@@ -641,29 +642,30 @@ public struct Markdown {
             "          ",
             "      )",
             ")"
-            ].joinWithSeparator("\n")
-        pattern = pattern.stringByReplacingOccurrencesOfString("$less_than_tab",
-            withString: String(_tabWidth - 1))
-        pattern = pattern.stringByReplacingOccurrencesOfString("$block_tags_b_re",
-            withString: blockTagsB)
-        pattern = pattern.stringByReplacingOccurrencesOfString("$block_tags_a_re",
-            withString: blockTagsA)
-        pattern = pattern.stringByReplacingOccurrencesOfString("$attr",
-            withString: attr)
-        pattern = pattern.stringByReplacingOccurrencesOfString("$content2",
-            withString: content2)
-        pattern = pattern.stringByReplacingOccurrencesOfString("$content",
-            withString: content)
+            ].joined(separator: "\n")
+        pattern = pattern.replacingOccurrences(of: "$less_than_tab",
+            with: String(_tabWidth - 1))
+        pattern = pattern.replacingOccurrences(of: "$block_tags_b_re",
+            with: blockTagsB)
+        pattern = pattern.replacingOccurrences(of: "$block_tags_a_re",
+            with: blockTagsA)
+        pattern = pattern.replacingOccurrences(of: "$attr",
+            with: attr)
+        pattern = pattern.replacingOccurrences(of: "$content2",
+            with: content2)
+        pattern = pattern.replacingOccurrences(of: "$content",
+            with: content)
 
         return pattern
     }
 
     /// replaces any block-level HTML blocks with hash entries
-    private mutating func hashHTMLBlocks(text: String) -> String {
-        return Markdown._blocksHtml.replace(text) { self.htmlEvaluator($0) }
+    private mutating func hashHTMLBlocks(_ text: String) -> String {
+        var selfCopy = self
+        return Markdown._blocksHtml.replace(text) { selfCopy.htmlEvaluator($0) }
     }
 
-    private mutating func htmlEvaluator(match: Match) -> String {
+    private mutating func htmlEvaluator(_ match: Match) -> String {
         let text: String = match.valueOfGroupAtIndex(1) as String ?? ""
         let key = Markdown.getHashKey(text, isHtmlBlock: true)
         _htmlBlocks[key] = text
@@ -671,7 +673,7 @@ public struct Markdown {
         return "\n\n\(key)\n\n"
     }
 
-    private static func getHashKey(s: String, isHtmlBlock: Bool) -> String {
+    private static func getHashKey(_ s: String, isHtmlBlock: Bool) -> String {
         let delim = isHtmlBlock ? "H" : "E"
         return "\u{1A}" + delim + String(abs(s.hashValue)) + delim
     }
@@ -681,7 +683,7 @@ public struct Markdown {
     private static let _htmlTokens = Regex([
         "(<!--(?:|(?:[^>-]|-[^>])(?:[^-]|-[^-])*)-->)|   # match <!-- foo -->",
         "(<\\?.*?\\?>)|                                  # match <?foo?>"
-        ].joinWithSeparator("\n") +
+        ].joined(separator: "\n") +
         Markdown.repeatString("(<[A-Za-z\\/!$](?:[^<>]|", _nestDepth) +
         Markdown.repeatString(")*>)", _nestDepth) + " # match <tag> and </tag>",
         options: RegexOptions.Multiline.union(RegexOptions.Singleline).union(RegexOptions.IgnorePatternWhitespace))
@@ -691,7 +693,7 @@ public struct Markdown {
     /// as &lt;a href="&lt;MTFoo&gt;"&gt;, or a run of text between tags. Each element of the
     /// array is a two-element array; the first is either 'tag' or 'text'; the second is
     /// the actual value.
-    private func tokenizeHTML(text: String) -> [Token] {
+    private func tokenizeHTML(_ text: String) -> [Token] {
         var pos = 0
         var tagStart = 0
         var tokens = Array<Token>()
@@ -705,14 +707,14 @@ public struct Markdown {
 
             if pos < tagStart {
                 let range = NSMakeRange(pos, tagStart - pos)
-                tokens.append(Token(type: .Text, value: str.substringWithRange(range)))
+                tokens.append(Token(type: .text, value: str.substring(with: range)))
             }
-            tokens.append(Token(type: .Tag, value: match.value as String))
+            tokens.append(Token(type: .tag, value: match.value as String))
             pos = tagStart + match.length
         }
 
         if pos < str.length {
-            tokens.append(Token(type: .Text, value: str.substringWithRange(NSMakeRange(pos, Int(str.length) - pos))))
+            tokens.append(Token(type: .text, value: str.substring(with: NSMakeRange(pos, Int(str.length) - pos))))
         }
 
         return tokens
@@ -731,7 +733,7 @@ public struct Markdown {
         "        (.*?)                   # id = $3",
         "    \\]",
         ")"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.Singleline.union(RegexOptions.IgnorePatternWhitespace))
 
     private static let _anchorInline = Regex([
@@ -751,7 +753,7 @@ public struct Markdown {
         "        )?                  # title is optional",
         "    \\)",
         ")"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.Singleline.union(RegexOptions.IgnorePatternWhitespace))
 
     private static let _anchorRefShortcut = Regex([
@@ -760,7 +762,7 @@ public struct Markdown {
         "     ([^\\[\\]]+)               # link text = $2; can't contain [ or ]",
         "  \\]",
         ")"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.Singleline.union(RegexOptions.IgnorePatternWhitespace))
 
     /// Turn Markdown link shortcuts into HTML anchor tags
@@ -768,7 +770,7 @@ public struct Markdown {
     /// - [link text](url "title")
     /// - [link text][id]
     /// - [id]
-    private func doAnchors(text: String) -> String {
+    private func doAnchors(_ text: String) -> String {
         // First, handle reference-style links: [link text] [id]
         var text = Markdown._anchorRef.replace(text) { self.anchorRefEvaluator($0) }
 
@@ -782,20 +784,20 @@ public struct Markdown {
         return text
     }
 
-    private func saveFromAutoLinking(s: String) -> String {
-        return s.stringByReplacingOccurrencesOfString("://", withString: Markdown.autoLinkPreventionMarker)
+    private func saveFromAutoLinking(_ s: String) -> String {
+        return s.replacingOccurrences(of: "://", with: Markdown.autoLinkPreventionMarker)
     }
 
-    private func anchorRefEvaluator(match: Match) -> String {
+    private func anchorRefEvaluator(_ match: Match) -> String {
         let wholeMatch = match.valueOfGroupAtIndex(1)
         let linkText = saveFromAutoLinking(match.valueOfGroupAtIndex(2) as String)
-        var linkID = match.valueOfGroupAtIndex(3).lowercaseString
+        var linkID = match.valueOfGroupAtIndex(3).lowercased
 
         var result: String
 
         // for shortcut links like [this][].
         if linkID.isEmpty {
-            linkID = linkText.lowercaseString
+            linkID = linkText.lowercased()
         }
 
         if var url = _urls[linkID] {
@@ -818,10 +820,10 @@ public struct Markdown {
         return result
     }
 
-    private func anchorRefShortcutEvaluator(match: Match) -> String {
+    private func anchorRefShortcutEvaluator(_ match: Match) -> String {
         let wholeMatch = match.valueOfGroupAtIndex(1)
         let linkText = saveFromAutoLinking(match.valueOfGroupAtIndex(2) as String)
-        let linkID = Regex.replace(linkText.lowercaseString,
+        let linkID = Regex.replace(linkText.lowercased(),
             pattern: "\\p{Z}*\\n\\p{Z}*",
             replacement: " ")  // lower case and remove newlines / extra spaces
 
@@ -847,7 +849,7 @@ public struct Markdown {
         return result
     }
 
-    private func anchorInlineEvaluator(match: Match) -> String {
+    private func anchorInlineEvaluator(_ match: Match) -> String {
         let linkText = saveFromAutoLinking(match.valueOfGroupAtIndex(2) as String)
         var url = match.valueOfGroupAtIndex(3)
         var title = match.valueOfGroupAtIndex(6)
@@ -857,7 +859,7 @@ public struct Markdown {
         url = encodeProblemUrlChars(url as String)
         url = escapeBoldItalic(url as String)
         if url.hasPrefix("<") && url.hasSuffix(">") {
-            url = url.substringWithRange(NSMakeRange(1, url.length - 2)) // remove <>'s surrounding URL, if present
+            url = url.substring(with: NSMakeRange(1, url.length - 2)) // remove <>'s surrounding URL, if present
         }
 
         result = "<a href=\"\(url)\""
@@ -886,7 +888,7 @@ public struct Markdown {
         "\\]",
         "",
         ")"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.IgnorePatternWhitespace.union(RegexOptions.Singleline))
 
     private static let _imagesInline = Regex([
@@ -907,14 +909,14 @@ public struct Markdown {
         "      )?              # title is optional",
         "  \\)",
         ")"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.IgnorePatternWhitespace.union(RegexOptions.Singleline))
 
     /// Turn Markdown image shortcuts into HTML img tags.
     ///
     /// - ![alt text][id]
     /// - ![alt text](url "optional title")
-    private func doImages(text: String) -> String {
+    private func doImages(_ text: String) -> String {
         // First, handle reference-style labeled images: ![alt text][id]
         var text = Markdown._imagesRef.replace(text) { self.imageReferenceEvaluator($0) }
 
@@ -928,20 +930,20 @@ public struct Markdown {
     // This prevents the creation of horribly broken HTML when some syntax ambiguities
     // collide. It likely still doesn't do what the user meant, but at least we're not
     // outputting garbage.
-    private func escapeImageAltText(s: String) -> String {
+    private func escapeImageAltText(_ s: String) -> String {
         var s = escapeBoldItalic(s)
         s = Regex.replace(s, pattern: "[\\[\\]()]") { Markdown._escapeTable[$0.value as String]! }
         return s
     }
 
-    private func imageReferenceEvaluator(match: Match) -> String {
+    private func imageReferenceEvaluator(_ match: Match) -> String {
         let wholeMatch = match.valueOfGroupAtIndex(1)
         let altText = match.valueOfGroupAtIndex(2)
-        var linkID = match.valueOfGroupAtIndex(3).lowercaseString
+        var linkID = match.valueOfGroupAtIndex(3).lowercased
 
         // for shortcut links like ![this][].
         if linkID.isEmpty {
-            linkID = altText.lowercaseString
+            linkID = altText.lowercased
         }
 
         if let url = _urls[linkID] {
@@ -958,18 +960,18 @@ public struct Markdown {
         }
     }
 
-    private func imageInlineEvaluator(match: Match) -> String {
+    private func imageInlineEvaluator(_ match: Match) -> String {
         let alt = match.valueOfGroupAtIndex(2)
         var url = match.valueOfGroupAtIndex(3)
         let title = match.valueOfGroupAtIndex(6)
 
         if url.hasPrefix("<") && url.hasSuffix(">") {
-            url = url.substringWithRange(NSMakeRange(1, url.length - 2))    // Remove <>'s surrounding URL, if present
+            url = url.substring(with: NSMakeRange(1, url.length - 2))    // Remove <>'s surrounding URL, if present
         }
         return imageTag(url as String, altText: alt as String, title: title as String)
     }
 
-    private func imageTag(url: String, altText: String, title: String?) -> String {
+    private func imageTag(_ url: String, altText: String, title: String?) -> String {
         let altText = escapeImageAltText(Markdown.attributeEncode(altText))
         var url = encodeProblemUrlChars(url)
         url = escapeBoldItalic(url)
@@ -991,7 +993,7 @@ public struct Markdown {
         "(=+|-+)     # $1 = string of ='s or -'s",
         "\\p{Z}*",
         "\\n+"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.Multiline.union(RegexOptions.IgnorePatternWhitespace))
 
     private static let _headerAtx = Regex([
@@ -1001,7 +1003,7 @@ public struct Markdown {
         "\\p{Z}*",
         "\\#*         # optional closing #'s (not counted)",
         "\\n+"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.Multiline.union(RegexOptions.IgnorePatternWhitespace))
 
     /// Turn Markdown headers into HTML header tags
@@ -1021,19 +1023,19 @@ public struct Markdown {
     /// ...
     ///
     /// ###### Header 6
-    private func doHeaders(text: String) -> String {
+    private func doHeaders(_ text: String) -> String {
         var text = Markdown._headerSetext.replace(text) { self.setextHeaderEvaluator($0) }
         text = Markdown._headerAtx.replace(text) { self.atxHeaderEvaluator($0) }
         return text
     }
 
-    private func setextHeaderEvaluator(match: Match) -> String {
+    private func setextHeaderEvaluator(_ match: Match) -> String {
         let header = match.valueOfGroupAtIndex(1)
         let level = match.valueOfGroupAtIndex(2).hasPrefix("=") ? 1 : 2
         return "<h\(level)>\(runSpanGamut(header as String))</h\(level)>\n\n"
     }
 
-    private func atxHeaderEvaluator(match: Match) -> String {
+    private func atxHeaderEvaluator(_ match: Match) -> String {
         let header = match.valueOfGroupAtIndex(2)
         let level = match.valueOfGroupAtIndex(1).length
         return "<h\(level)>\(runSpanGamut(header as String))</h\(level)>\n\n"
@@ -1048,7 +1050,7 @@ public struct Markdown {
         "    ){2,}         # Group repeated at least twice",
         "    \\p{Z}*          # Trailing spaces",
         "    $             # End of line."
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.Multiline.union(RegexOptions.IgnorePatternWhitespace))
 
     /// Turn Markdown horizontal rules into HTML hr tags
@@ -1060,7 +1062,7 @@ public struct Markdown {
     /// ---
     ///
     /// - - -
-    private func doHorizontalRules(text: String) -> String {
+    private func doHorizontalRules(_ text: String) -> String {
         return Markdown._horizontalRules.replace(text, "<hr" + _emptyElementSuffix + "\n")
     }
 
@@ -1085,7 +1087,7 @@ public struct Markdown {
         "      )",
         "  )",
         ")"
-        ].joinWithSeparator("\n")
+        ].joined(separator: "\n")
 
     private static let _listNested = Regex("^" + _wholeList,
         options: RegexOptions.Multiline.union(RegexOptions.IgnorePatternWhitespace))
@@ -1094,7 +1096,7 @@ public struct Markdown {
         options: RegexOptions.Multiline.union(RegexOptions.IgnorePatternWhitespace))
 
     /// Turn Markdown lists into HTML ul and ol and li tags
-    private mutating func doLists(text: String, isInsideParagraphlessListItem: Bool = false) -> String {
+    private mutating func doLists(_ text: String, isInsideParagraphlessListItem: Bool = false) -> String {
         // We use a different prefix before nested lists than top-level lists.
         // See extended comment in _ProcessListItems().
         var text = text
@@ -1109,13 +1111,14 @@ public struct Markdown {
         return text
     }
 
-    private mutating func getListEvaluator(isInsideParagraphlessListItem: Bool = false) -> MatchEvaluator {
+    private mutating func getListEvaluator(_ isInsideParagraphlessListItem: Bool = false) -> MatchEvaluator {
+        var selfCopy = self
         return { match in
             let list = match.valueOfGroupAtIndex(1) as String
             let listType = Regex.isMatch(match.valueOfGroupAtIndex(3) as String, pattern: Markdown._markerUL) ? "ul" : "ol"
             var result: String
 
-            result = self.processListItems(list,
+            result = selfCopy.processListItems(list,
                 marker: listType == "ul" ? Markdown._markerUL : Markdown._markerOL,
                 isInsideParagraphlessListItem: isInsideParagraphlessListItem)
 
@@ -1126,7 +1129,7 @@ public struct Markdown {
 
     /// Process the contents of a single ordered or unordered list, splitting it
     /// into individual list items.
-    private mutating func processListItems(list: String, marker: String, isInsideParagraphlessListItem: Bool = false) -> String {
+    private mutating func processListItems(_ list: String, marker: String, isInsideParagraphlessListItem: Bool = false) -> String {
         // The listLevel global keeps track of when we're inside a list.
         // Each time we enter a list, we increment it; when we leave a list,
         // we decrement. If it's zero, we're not in a list anymore.
@@ -1159,28 +1162,30 @@ public struct Markdown {
             "((?s:.+?)                  # list item text = $3",
             "(\\n+))",
             "(?= (\\z | \\1 (\(marker)) \\p{Z}+))"
-            ].joinWithSeparator("\n")
+            ].joined(separator: "\n")
 
         var lastItemHadADoubleNewline = false
 
+        var selfCopy = self
+        
         // has to be a closure, so subsequent invocations can share the bool
         let listItemEvaluator: MatchEvaluator = { match in
             var item = match.valueOfGroupAtIndex(3)
-
+            
             let endsWithDoubleNewline = item.hasSuffix("\n\n")
             let containsDoubleNewline = endsWithDoubleNewline || Markdown.doesString(item, containSubstring: "\n\n")
 
             if containsDoubleNewline || lastItemHadADoubleNewline {
                 // we could correct any bad indentation here..
-                item = self.runBlockGamut(self.outdent(item as String) + "\n", unhash: false)
+                item = selfCopy.runBlockGamut(selfCopy.outdent(item as String) + "\n", unhash: false)
             }
             else {
                 // recursion for sub-lists
-                item = self.doLists(self.outdent(item as String), isInsideParagraphlessListItem: true)
+                item = selfCopy.doLists(selfCopy.outdent(item as String), isInsideParagraphlessListItem: true)
                 item = Markdown.trimEnd(item, "\n")
                 if (!isInsideParagraphlessListItem) {
                     // only the outer-most item should run this, otherwise it's run multiple times for the inner ones
-                    item = self.runSpanGamut(item as String)
+                    item = selfCopy.runSpanGamut(item as String)
                 }
             }
             lastItemHadADoubleNewline = endsWithDoubleNewline
@@ -1205,16 +1210,16 @@ public struct Markdown {
         ")+",
         ")",
         "((?=^\\p{Z}{0,\(_tabWidth)}[^ \\t\\n])|\\Z) # Lookahead for non-space at line-start, or end of doc"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.Multiline.union(RegexOptions.IgnorePatternWhitespace))
 
     /// Turn Markdown 4-space indented code into HTML pre code blocks
-    private func doCodeBlocks(text: String) -> String {
+    private func doCodeBlocks(_ text: String) -> String {
         let text = Markdown._codeBlock.replace(text) { self.codeBlockEvaluator($0) }
         return text
     }
 
-    private func codeBlockEvaluator(match: Match) -> String {
+    private func codeBlockEvaluator(_ match: Match) -> String {
         var codeBlock = match.valueOfGroupAtIndex(1)
 
         codeBlock = encodeCode(outdent(codeBlock as String))
@@ -1231,11 +1236,11 @@ public struct Markdown {
         "(?<!`)",
         "\\1",
         "(?!`)"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.IgnorePatternWhitespace.union(RegexOptions.Singleline))
 
     /// Turn Markdown `code spans` into HTML code tags
-    private func doCodeSpans(text: String) -> String {
+    private func doCodeSpans(_ text: String) -> String {
         //    * You can use multiple backticks as the delimiters if you want to
         //        include literal backticks in the code span. So, this input:
         //
@@ -1261,7 +1266,7 @@ public struct Markdown {
         return Markdown._codeSpan.replace(text) { self.codeSpanEvaluator($0) }
     }
 
-    private func codeSpanEvaluator(match: Match) -> String {
+    private func codeSpanEvaluator(_ match: Match) -> String {
         var span = match.valueOfGroupAtIndex(2)
         span = Regex.replace(span as String, pattern: "^\\p{Z}*", replacement: "") // leading whitespace
         span = Regex.replace(span as String, pattern: "\\p{Z}*$", replacement: "") // trailing whitespace
@@ -1282,7 +1287,7 @@ public struct Markdown {
         options: RegexOptions.Singleline)
 
     /// Turn Markdown *italics* and **bold** into HTML strong and em tags
-    private func doItalicsAndBold(text: String) -> String {
+    private func doItalicsAndBold(_ text: String) -> String {
         // <strong> must go first, then <em>
         var text = text
         if (_strictBoldItalic) {
@@ -1297,7 +1302,7 @@ public struct Markdown {
     }
 
     /// Turn markdown line breaks (two space at end of line) into HTML break tags
-    private func doHardBreaks(text: String) -> String {
+    private func doHardBreaks(_ text: String) -> String {
         var text = text
         if (_autoNewlines) {
             text = Regex.replace(text, pattern: "\\n", replacement: "<br\(_emptyElementSuffix)\n")
@@ -1317,16 +1322,17 @@ public struct Markdown {
         "    \\n*                    # blanks",
         "    )+",
         ")"
-        ].joinWithSeparator("\n"),
+        ].joined(separator: "\n"),
         options: RegexOptions.IgnorePatternWhitespace.union(RegexOptions.Multiline))
 
 
     /// Turn Markdown > quoted blocks into HTML blockquote blocks
-    private mutating func doBlockQuotes(text: String) -> String {
-        return Markdown._blockquote.replace(text) { self.blockQuoteEvaluator($0) }
+    private mutating func doBlockQuotes(_ text: String) -> String {
+        var selfCopy = self
+        return Markdown._blockquote.replace(text) { selfCopy.blockQuoteEvaluator($0) }
     }
 
-    private mutating func blockQuoteEvaluator(match: Match) -> String {
+    private mutating func blockQuoteEvaluator(_ match: Match) -> String {
         var bq = match.valueOfGroupAtIndex(1) as String
 
         bq = Regex.replace(bq,
@@ -1344,10 +1350,11 @@ public struct Markdown {
             replacement: "  ",
             options: RegexOptions.Multiline)
 
+        let selfCopy = self
         // These leading spaces screw with <pre> content, so we need to fix that:
         bq = Regex.replace(bq,
             pattern: "(\\s*<pre>.+?</pre>)",
-            evaluator: { self.blockQuoteEvaluator2($0) },
+            evaluator: { selfCopy.blockQuoteEvaluator2($0) },
             options: RegexOptions.IgnorePatternWhitespace.union(RegexOptions.Singleline))
 
         bq = "<blockquote>\n\(bq)\n</blockquote>"
@@ -1357,7 +1364,7 @@ public struct Markdown {
         return "\n\n\(key)\n\n"
     }
 
-    private func blockQuoteEvaluator2(match: Match) -> String {
+    private func blockQuoteEvaluator2(_ match: Match) -> String {
         return Regex.replace(match.valueOfGroupAtIndex(1) as String,
             pattern: "^  ",
             replacement: "",
@@ -1373,7 +1380,7 @@ public struct Markdown {
     private static let _endCharRegex = Regex(_charEndingUrl,
         options: RegexOptions.IgnoreCase)
 
-    private static func handleTrailingParens(match: Match) -> String {
+    private static func handleTrailingParens(_ match: Match) -> String {
         // The first group is essentially a negative lookbehind -- if there's a < or a =", we don't touch this.
         // We're not using a *real* lookbehind, because of links with in links, like <a href="http://web.archive.org/web/20121130000728/http://www.google.com/">
         // With a real lookbehind, the full link would never be matched, and thus the http://www.google.com *would* be matched.
@@ -1410,10 +1417,10 @@ public struct Markdown {
             })
         }
         if tail.length > 0 {
-            let lastChar = link.substringFromIndex(link.length - 1)
+            let lastChar = link.substring(from: link.length - 1)
             if !_endCharRegex.isMatch(lastChar) {
                 tail = "\(lastChar)\(tail)"
-                link = link.substringToIndex(link.length - 1)
+                link = link.substring(to: link.length - 1)
             }
         }
         return "<\(proto)\(link)>\(tail)"
@@ -1422,7 +1429,7 @@ public struct Markdown {
     /// Turn angle-delimited URLs into HTML anchor tags
     ///
     /// &lt;http://www.example.com&gt;
-    private func doAutoLinks(text: String) -> String {
+    private func doAutoLinks(_ text: String) -> String {
 
         var text = text
         if (_autoHyperlink) {
@@ -1445,7 +1452,7 @@ public struct Markdown {
                 "  [-a-z0-9]+(\\.[-a-z0-9]+)*\\.[a-z]+",
                 ")",
                 ">"
-                ].joinWithSeparator("\n")
+                ].joined(separator: "\n")
             text = Regex.replace(text,
                 pattern: pattern,
                 evaluator: { self.emailEvaluator($0) },
@@ -1455,12 +1462,12 @@ public struct Markdown {
         return text
     }
 
-    private func hyperlinkEvaluator(match: Match) -> String {
+    private func hyperlinkEvaluator(_ match: Match) -> String {
         let link = match.valueOfGroupAtIndex(1)
         return "<a href=\"\(escapeBoldItalic(encodeProblemUrlChars(link as String)))\">\(link)</a>"
     }
 
-    private func emailEvaluator(match: Match) -> String {
+    private func emailEvaluator(_ match: Match) -> String {
         var email = unescape(match.valueOfGroupAtIndex(1) as String)
 
         //
@@ -1493,14 +1500,14 @@ public struct Markdown {
         options: RegexOptions.Multiline)
 
     /// Remove one level of line-leading spaces
-    private func outdent(block: String) -> String {
+    private func outdent(_ block: String) -> String {
         return Markdown._outDent.replace(block, "")
     }
 
     /// encodes email address randomly
     /// roughly 10% raw, 45% hex, 45% dec
     /// note that @ is always encoded and : never is
-    private func encodeEmailAddress(addr: String) -> String {
+    private func encodeEmailAddress(_ addr: String) -> String {
         var sb = ""
         let colon: UInt8 = 58 // ':'
         let at: UInt8 = 64    // '@'
@@ -1508,7 +1515,7 @@ public struct Markdown {
             let r = arc4random_uniform(99) + 1
             // TODO: verify that the following stuff works as expected in Swift
             if (r > 90 || c == colon) && c != at {
-                sb += String(count: 1, repeatedValue: UnicodeScalar(UInt32(c))) // m
+                sb += String(repeating: UnicodeScalar(UInt32(c)), count: 1) // m
             } else if r < 45 {
                 sb += NSString(format:"&#x%02x;", UInt(c)) as String                      // &#x6D
             } else {
@@ -1521,11 +1528,11 @@ public struct Markdown {
     private static let _codeEncoder = Regex("&|<|>|\\\\|\\*|_|\\{|\\}|\\[|\\]")
 
     /// Encode/escape certain Markdown characters inside code blocks and spans where they are literals
-    private func encodeCode(code: String) -> String {
+    private func encodeCode(_ code: String) -> String {
         return Markdown._codeEncoder.replace(code) { self.encodeCodeEvaluator($0) }
     }
 
-    private func encodeCodeEvaluator(match: Match) -> String {
+    private func encodeCodeEvaluator(_ match: Match) -> String {
         switch (match.value) {
             // Encode all ampersands; HTML entities are not
             // entities within a Markdown code span.
@@ -1548,7 +1555,7 @@ public struct Markdown {
     private static let _angles = Regex("<(?![A-Za-z/?\\$!])")
 
     /// Encode any ampersands (that aren't part of an HTML entity) and left or right angle brackets
-    private func encodeAmpsAndAngles(s: String) -> String {
+    private func encodeAmpsAndAngles(_ s: String) -> String {
         var s = Markdown._amps.replace(s, "&amp;")
         s = Markdown._angles.replace(s, "&lt;")
         return s
@@ -1557,42 +1564,42 @@ public struct Markdown {
     private static var _backslashEscapes: Regex!
 
     /// Encodes any escaped characters such as \`, \*, \[ etc
-    private func escapeBackslashes(s: String) -> String {
+    private func escapeBackslashes(_ s: String) -> String {
         return Markdown._backslashEscapes.replace(s) { self.escapeBackslashesEvaluator($0) }
     }
-    private func escapeBackslashesEvaluator(match: Match) -> String {
+    private func escapeBackslashesEvaluator(_ match: Match) -> String {
         return Markdown._backslashEscapeTable[match.value as String]!
     }
 
     private static let _unescapes = Regex("\u{1A}E\\d+E")
 
     /// swap back in all the special characters we've hidden
-    private func unescape(s: String) -> String {
+    private func unescape(_ s: String) -> String {
         return Markdown._unescapes.replace(s) { self.unescapeEvaluator($0) }
     }
-    private func unescapeEvaluator(match: Match) -> String {
+    private func unescapeEvaluator(_ match: Match) -> String {
         return Markdown._invertedEscapeTable[match.value as String]!
     }
 
     /// this is to emulate what's evailable in PHP
-    private static func repeatString(text: String, _ count: Int) -> String {
-        return Array(count: count, repeatedValue: text).reduce("", combine: +)
+    private static func repeatString(_ text: String, _ count: Int) -> String {
+        return Array(repeating: text, count: count).reduce("", combine: +)
     }
 
     /// escapes Bold [ * ] and Italic [ _ ] characters
-    private func escapeBoldItalic(s: String) -> String {
+    private func escapeBoldItalic(_ s: String) -> String {
         var str = s as NSString
-        str = str.stringByReplacingOccurrencesOfString("*",
-            withString: Markdown._escapeTable["*"]!)
-        str = str.stringByReplacingOccurrencesOfString("_",
-            withString: Markdown._escapeTable["_"]!)
+        str = str.replacingOccurrences(of: "*",
+            with: Markdown._escapeTable["*"]!)
+        str = str.replacingOccurrences(of: "_",
+            with: Markdown._escapeTable["_"]!)
         return str as String
     }
 
-    private static let _problemUrlChars = NSCharacterSet(charactersInString: "\"'*()[]$:")
+    private static let _problemUrlChars = CharacterSet(charactersIn: "\"'*()[]$:")
 
     /// hex-encodes some unusual "problem" chars in URLs to avoid URL detection problems
-    private func encodeProblemUrlChars(url: String) -> String {
+    private func encodeProblemUrlChars(_ url: String) -> String {
         if (!_encodeProblemUrlCharacters) { return url }
 
         var sb = ""
@@ -1600,12 +1607,12 @@ public struct Markdown {
 
         let str = url as NSString
         for i in 0..<str.length {
-            let c = str.characterAtIndex(i)
-            encode = Markdown._problemUrlChars.characterIsMember(c)
+            let c = str.character(at: i)
+            encode = Markdown._problemUrlChars.contains(UnicodeScalar(c))
             if (encode && c == U16_COLON && i < str.length - 1) {
-                encode = !(str.characterAtIndex(i + 1) == U16_SLASH) &&
-                    !(str.characterAtIndex(i + 1) >= U16_ZERO
-                        && str.characterAtIndex(i + 1) <= U16_NINE)
+                encode = !(str.character(at: i + 1) == U16_SLASH) &&
+                    !(str.character(at: i + 1) >= U16_ZERO
+                        && str.character(at: i + 1) <= U16_NINE)
             }
 
             if (encode) {
@@ -1613,7 +1620,7 @@ public struct Markdown {
                 sb += NSString(format:"%2x", UInt(c)) as String
             }
             else {
-                sb += String(count: 1, repeatedValue: UnicodeScalar(c))
+                sb += String(repeating: UnicodeScalar(c), count: 1)
             }
         }
 
@@ -1625,7 +1632,7 @@ public struct Markdown {
     /// We're replacing each such character with its corresponding hash
     /// value; this is likely overkill, but it should prevent us from colliding
     /// with the escape values by accident.
-    private func escapeSpecialCharsWithinTagAttributes(text: String) -> String {
+    private func escapeSpecialCharsWithinTagAttributes(_ text: String) -> String {
         let tokens = tokenizeHTML(text)
 
         // now, rebuild text from the tokens
@@ -1634,13 +1641,13 @@ public struct Markdown {
         for token in tokens {
             var value = token.value
 
-            if token.type == TokenType.Tag {
-                value = value.stringByReplacingOccurrencesOfString("\\",
-                    withString: Markdown._escapeTable["\\"]!)
+            if token.type == TokenType.tag {
+                value = value.replacingOccurrences(of: "\\",
+                    with: Markdown._escapeTable["\\"]!)
 
                 if _autoHyperlink && value.hasPrefix("<!") { // escape slashes in comments to prevent autolinking there -- http://meta.stackoverflow.com/questions/95987/html-comment-containing-url-breaks-if-followed-by-another-html-comment
-                    value = value.stringByReplacingOccurrencesOfString("/",
-                        withString: Markdown._escapeTable["/"]!)
+                    value = value.replacingOccurrences(of: "/",
+                        with: Markdown._escapeTable["/"]!)
                 }
 
                 value = Regex.replace(value,
@@ -1659,12 +1666,12 @@ public struct Markdown {
     /// standardizes line endings from DOS (CR LF) or Mac (CR) to UNIX (LF);
     /// makes sure text ends with a couple of newlines;
     /// removes any blank lines (only spaces) in the text
-    private func normalize(text: String) -> String {
+    private func normalize(_ text: String) -> String {
         var output = ""
         var line = ""
         var valid = false
         
-        for i in text.startIndex..<text.endIndex {
+        for i in text.characters.indices {
             let c = text[i]
             switch (c) {
             case "\n":
@@ -1691,7 +1698,7 @@ public struct Markdown {
                 if !valid && c != " " /* ' ' */ {
                     valid = true
                 }
-                line += String(count: 1, repeatedValue: c)
+                line += String(repeating: c, count: 1)
                 break
             }
         }
@@ -1703,37 +1710,37 @@ public struct Markdown {
         return output + "\n\n"
     }
 
-    private static func attributeEncode(s: String) -> String {
-        return s.stringByReplacingOccurrencesOfString(">", withString: "&gt;")
-            .stringByReplacingOccurrencesOfString("<", withString: "&lt;")
-            .stringByReplacingOccurrencesOfString("\"", withString: "&quot;")
+    private static func attributeEncode(_ s: String) -> String {
+        return s.replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
-    private static func doesString(string: NSString, containSubstring substring: NSString) -> Bool {
-        let range = string.rangeOfString(substring as String)
+    private static func doesString(_ string: NSString, containSubstring substring: NSString) -> Bool {
+        let range = string.range(of: substring as String)
         return !(NSNotFound == range.location)
     }
 
-    private static func trimEnd(string: NSString, _ suffix: NSString) -> String {
+    private static func trimEnd(_ string: NSString, _ suffix: NSString) -> String {
         var s = string
         while s.hasSuffix(suffix as String) {
-            s = s.substringToIndex(s.length - suffix.length)
+            s = s.substring(to: s.length - suffix.length)
         }
         return s as String
     }
 
-    private static func isNilOrEmpty(s: String?) -> Bool {
+    private static func isNilOrEmpty(_ s: String?) -> Bool {
         switch s {
-        case .Some(let nonNilString):
+        case .some(let nonNilString):
             return nonNilString.isEmpty
         default:
             return true
         }
     }
 
-    private static func isNilOrEmpty(s: NSString?) -> Bool {
+    private static func isNilOrEmpty(_ s: NSString?) -> Bool {
         switch s {
-        case .Some(let nonNilString):
+        case .some(let nonNilString):
             return nonNilString.length == 0
         default:
             return true
@@ -1741,7 +1748,7 @@ public struct Markdown {
     }
 
     /// Convert UnicodeScalar to a 16-bit unichar value
-    private static func unicharForUnicodeScalar(unicodeScalar: UnicodeScalar) -> unichar {
+    private static func unicharForUnicodeScalar(_ unicodeScalar: UnicodeScalar) -> unichar {
         let u32 = UInt32(unicodeScalar)
         if u32 <= UInt32(UINT16_MAX) {
             return unichar(u32)
@@ -1770,24 +1777,24 @@ public struct Markdown {
 /// This is intended only for use by the Markdown parser. It is not
 /// a general-purpose regex utility.
 private struct MarkdownRegex {
-    private let regularExpresson: NSRegularExpression!
+    private let regularExpresson: RegularExpression!
 
     #if MARKINGBIRD_DEBUG
     // These are not used, but can be helpful when debugging
     private var initPattern: NSString
-    private var initOptions: NSRegularExpressionOptions
+    private var initOptions: RegularExpression.Options
     #endif
 
-    private init(_ pattern: String, options: NSRegularExpressionOptions = NSRegularExpressionOptions(rawValue: 0)) {
+    private init(_ pattern: String, options: RegularExpression.Options = RegularExpression.Options(rawValue: 0)) {
         #if MARKINGBIRD_DEBUG
             self.initPattern = pattern
             self.initOptions = options
         #endif
 
         var error: NSError?
-        let re: NSRegularExpression?
+        let re: RegularExpression?
         do {
-            re = try NSRegularExpression(pattern: pattern,
+            re = try RegularExpression(pattern: pattern,
                         options: options)
         } catch let error1 as NSError {
             error = error1
@@ -1808,30 +1815,30 @@ private struct MarkdownRegex {
         self.regularExpresson = re
     }
 
-    private func replace(input: String, _ replacement: String) -> String {
+    private func replace(_ input: String, _ replacement: String) -> String {
         let s = input as NSString
-        let result = regularExpresson.stringByReplacingMatchesInString(s as String,
-            options: NSMatchingOptions(rawValue: 0),
+        let result = regularExpresson.stringByReplacingMatches(in: s as String,
+            options: RegularExpression.MatchingOptions(rawValue: 0),
             range: NSMakeRange(0, s.length),
             withTemplate: replacement)
         return result
     }
 
-    private static func replace(input: String, pattern: String, replacement: String) -> String {
+    private static func replace(_ input: String, pattern: String, replacement: String) -> String {
         let regex = MarkdownRegex(pattern)
         return regex.replace(input, replacement)
     }
 
-    private func replace(input: String, evaluator: (MarkdownRegexMatch) -> String) -> String {
+    private func replace(_ input: String, evaluator: (MarkdownRegexMatch) -> String) -> String {
         // Get list of all replacements to be made
         var replacements = Array<(NSRange, String)>()
         let s = input as NSString
-        let options = NSMatchingOptions(rawValue: 0)
+        let options = RegularExpression.MatchingOptions(rawValue: 0)
         let range = NSMakeRange(0, s.length)
-        regularExpresson.enumerateMatchesInString(s as String,
+        regularExpresson.enumerateMatches(in: s as String,
             options: options,
             range: range,
-            usingBlock: { (result, flags, stop) -> Void in
+            using: { (result, flags, stop) -> Void in
                 if result!.range.location == NSNotFound {
                     return
                 }
@@ -1844,37 +1851,37 @@ private struct MarkdownRegex {
 
         // Make the replacements from back to front
         var result = s
-        for (range, replacementText) in Array(replacements.reverse()) {
-            result = result.stringByReplacingCharactersInRange(range, withString: replacementText)
+        for (range, replacementText) in Array(replacements.reversed()) {
+            result = result.replacingCharacters(in: range, with: replacementText)
         }
         return result as String
     }
 
-    private static func replace(input: String, pattern: String, evaluator: (MarkdownRegexMatch) -> String) -> String {
+    private static func replace(_ input: String, pattern: String, evaluator: (MarkdownRegexMatch) -> String) -> String {
         let regex = MarkdownRegex(pattern)
         return regex.replace(input, evaluator: evaluator)
     }
 
-    private static func replace(input: String, pattern: String, evaluator: (MarkdownRegexMatch) -> String, options: NSRegularExpressionOptions) -> String {
+    private static func replace(_ input: String, pattern: String, evaluator: (MarkdownRegexMatch) -> String, options: RegularExpression.Options) -> String {
         let regex = MarkdownRegex(pattern, options: options)
         return regex.replace(input, evaluator: evaluator)
     }
 
-    private static func replace(input: String, pattern: String, replacement: String, options: NSRegularExpressionOptions) -> String {
+    private static func replace(_ input: String, pattern: String, replacement: String, options: RegularExpression.Options) -> String {
         let regex = MarkdownRegex(pattern, options: options)
         return regex.replace(input, replacement)
     }
 
-    private func matches(input: String) -> [MarkdownRegexMatch] {
+    private func matches(_ input: String) -> [MarkdownRegexMatch] {
         var matchArray = Array<MarkdownRegexMatch>()
 
         let s = input as NSString
-        let options = NSMatchingOptions(rawValue: 0)
+        let options = RegularExpression.MatchingOptions(rawValue: 0)
         let range = NSMakeRange(0, s.length)
-        regularExpresson.enumerateMatchesInString(s as String,
+        regularExpresson.enumerateMatches(in: s as String,
             options: options,
             range: range,
-            usingBlock: { (result, flags, stop) -> Void in
+            using: { (result, flags, stop) -> Void in
                 let match = MarkdownRegexMatch(textCheckingResult: result!, string: s)
                 matchArray.append(match)
         })
@@ -1882,40 +1889,40 @@ private struct MarkdownRegex {
         return matchArray
     }
 
-    private static func matches(input: String, pattern: String) -> [MarkdownRegexMatch] {
+    private static func matches(_ input: String, pattern: String) -> [MarkdownRegexMatch] {
         let regex = MarkdownRegex(input)
         return regex.matches(pattern)
     }
 
-    private func isMatch(input: String) -> Bool {
+    private func isMatch(_ input: String) -> Bool {
         let s = input as NSString
-        let firstMatchRange = regularExpresson.rangeOfFirstMatchInString(s as String,
-            options: NSMatchingOptions(rawValue: 0),
+        let firstMatchRange = regularExpresson.rangeOfFirstMatch(in: s as String,
+            options: RegularExpression.MatchingOptions(rawValue: 0),
             range: NSMakeRange(0, s.length))
         return !(NSNotFound == firstMatchRange.location)
     }
 
-    private static func isMatch(input: String, pattern: String) -> Bool {
+    private static func isMatch(_ input: String, pattern: String) -> Bool {
         let regex = MarkdownRegex(pattern)
         return regex.isMatch(input)
     }
 
-    private func split(input: String) -> [String] {
+    private func split(_ input: String) -> [String] {
         var stringArray: [String] = Array<String>()
 
         var nextStartIndex = 0
 
         let s = input as NSString
-        let options = NSMatchingOptions(rawValue: 0)
+        let options = RegularExpression.MatchingOptions(rawValue: 0)
         let range = NSMakeRange(0, s.length)
-        regularExpresson.enumerateMatchesInString(input,
+        regularExpresson.enumerateMatches(in: input,
             options: options,
             range: range,
-            usingBlock: { (result, flags, stop) -> Void in
+            using: { (result, flags, stop) -> Void in
                 let range = result!.range
                 if range.location > nextStartIndex {
                     let runRange = NSMakeRange(nextStartIndex, range.location - nextStartIndex)
-                    let run = s.substringWithRange(runRange) as String
+                    let run = s.substring(with: runRange) as String
                     stringArray.append(run)
                     nextStartIndex = range.location + range.length
                 }
@@ -1923,30 +1930,30 @@ private struct MarkdownRegex {
 
         if nextStartIndex < s.length {
             let lastRunRange = NSMakeRange(nextStartIndex, s.length - nextStartIndex)
-            let lastRun = s.substringWithRange(lastRunRange) as String
+            let lastRun = s.substring(with: lastRunRange) as String
             stringArray.append(lastRun)
         }
 
         return stringArray
     }
 
-    private static func escape(input: String) -> String {
-        return NSRegularExpression.escapedPatternForString(input)
+    private static func escape(_ input: String) -> String {
+        return RegularExpression.escapedPattern(for: input)
     }
 }
 
 /// Provides interface similar to that of .NET's Match class for an NSTextCheckingResult
 private struct MarkdownRegexMatch {
-    let textCheckingResult: NSTextCheckingResult
+    let textCheckingResult: TextCheckingResult
     let string: NSString
 
-    init(textCheckingResult: NSTextCheckingResult, string: NSString) {
+    init(textCheckingResult: TextCheckingResult, string: NSString) {
         self.textCheckingResult = textCheckingResult
         self.string = string
     }
 
     var value: NSString {
-        return string.substringWithRange(textCheckingResult.range)
+        return string.substring(with: textCheckingResult.range)
     }
 
     var index: Int {
@@ -1957,14 +1964,14 @@ private struct MarkdownRegexMatch {
         return textCheckingResult.range.length
     }
 
-    func valueOfGroupAtIndex(idx: Int) -> NSString {
+    func valueOfGroupAtIndex(_ idx: Int) -> NSString {
         if 0 <= idx && idx < textCheckingResult.numberOfRanges {
-            let groupRange = textCheckingResult.rangeAtIndex(idx)
+            let groupRange = textCheckingResult.range(at: idx)
             if (groupRange.location == NSNotFound) {
                 return ""
             }
             assert(groupRange.location + groupRange.length <= string.length, "range must be contained within string")
-            return string.substringWithRange(groupRange)
+            return string.substring(with: groupRange)
         }
         return ""
     }
@@ -1985,17 +1992,17 @@ private struct MarkdownRegexMatch {
 /// - ExplicitCapture
 private struct MarkdownRegexOptions {
     /// Allow ^ and $ to match the start and end of lines.
-    static let Multiline = NSRegularExpressionOptions.AnchorsMatchLines
+    static let Multiline = RegularExpression.Options.anchorsMatchLines
 
     /// Ignore whitespace and #-prefixed comments in the pattern.
-    static let IgnorePatternWhitespace = NSRegularExpressionOptions.AllowCommentsAndWhitespace
+    static let IgnorePatternWhitespace = RegularExpression.Options.allowCommentsAndWhitespace
 
     /// Allow . to match any character, including line separators.
-    static let Singleline = NSRegularExpressionOptions.DotMatchesLineSeparators
+    static let Singleline = RegularExpression.Options.dotMatchesLineSeparators
 
     /// Match letters in the pattern independent of case.
-    static let IgnoreCase = NSRegularExpressionOptions.CaseInsensitive
+    static let IgnoreCase = RegularExpression.Options.caseInsensitive
 
     /// Default options
-    static let None = NSRegularExpressionOptions(rawValue: 0)
+    static let None = RegularExpression.Options(rawValue: 0)
 }

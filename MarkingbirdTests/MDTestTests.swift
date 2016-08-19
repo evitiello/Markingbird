@@ -14,9 +14,9 @@ class MDTestTests: XCTestCase {
             // If there is a difference, print it in a more readable way than
             // XCTest does
             switch firstDifferenceBetweenStrings(test.actualResult, s2: test.expectedResult) {
-            case .NoDifference:
+            case .noDifference:
                 break;
-            case .DifferenceAtIndex:
+            case .differenceAtIndex:
                 let prettyDiff = prettyFirstDifferenceBetweenStrings(test.actualResult, s2: test.expectedResult)
                 print("\n====\n\(test.actualName): \(prettyDiff)\n====\n")
             }
@@ -43,13 +43,13 @@ class MDTestTests: XCTestCase {
     func getTests() -> [TestCaseData] {
         var tests = Array<TestCaseData>()
         
-        let bundle = NSBundle(forClass: MDTestTests.self)
+        let bundle = Bundle(for: MDTestTests.self)
         let resourceURL = bundle.resourceURL!
-        let folderURL = resourceURL.URLByAppendingPathComponent(folder)
+        let folderURL = try! resourceURL.appendingPathComponent(folder)
         
         let folderContents: [AnyObject]?
         do {
-            folderContents = try NSFileManager.defaultManager().contentsOfDirectoryAtPath(folderURL.path!)
+            folderContents = try FileManager.default.contentsOfDirectory(atPath: folderURL.path!)
         } catch {
             XCTAssertNil(error)
             folderContents = nil
@@ -63,21 +63,21 @@ class MDTestTests: XCTestCase {
                     // Load the expected result content
                     let expectedName = filename
                     
-                    let expectedURL = folderURL.URLByAppendingPathComponent(expectedName)
+                    let expectedURL = try! folderURL.appendingPathComponent(expectedName)
                     let expectedContent: String?
                     do {
-                        expectedContent = try String(contentsOfURL: expectedURL, encoding: NSUTF8StringEncoding)
+                        expectedContent = try String(contentsOfURL: expectedURL, encoding: String.Encoding.utf8)
                     } catch {
                         XCTAssertNil(error)
                         expectedContent = nil
                     }
                     
                     // Load the source content
-                    let actualName = NSURL(string: expectedName)!.URLByDeletingPathExtension?.URLByAppendingPathExtension("text").path
-                    let sourceURL = folderURL.URLByAppendingPathComponent(actualName!)
+                    let actualName = try! NSURL(string: expectedName)!.deletingPathExtension?.appendingPathExtension("text").path
+                    let sourceURL = try! folderURL.appendingPathComponent(actualName!)
                     let sourceContent: String?
                     do {
-                        sourceContent = try String(contentsOfURL: sourceURL, encoding: NSUTF8StringEncoding)
+                        sourceContent = try String(contentsOfURL: sourceURL, encoding: String.Encoding.utf8)
                     } catch {
                         XCTAssertNil(error)
                         sourceContent = nil
@@ -106,42 +106,42 @@ class MDTestTests: XCTestCase {
     
     /// Removes any empty newlines and any leading spaces at the start of lines
     /// all tabs, and all carriage returns
-    func removeWhitespace(s: String) -> String {
+    func removeWhitespace(_ s: String) -> String {
         var str = s as NSString
         
         // Standardize line endings
-        str = str.stringByReplacingOccurrencesOfString("\r\n", withString: "\n")    // DOS to Unix
-        str = str.stringByReplacingOccurrencesOfString("\r", withString:"\n")       // Mac to Unix
+        str = str.replacingOccurrences(of: "\r\n", with: "\n")    // DOS to Unix
+        str = str.replacingOccurrences(of: "\r", with:"\n")       // Mac to Unix
     
         // remove any tabs entirely
-        str = str.stringByReplacingOccurrencesOfString("\t", withString: "")
+        str = str.replacingOccurrences(of: "\t", with: "")
     
         // remove empty newlines
-        let newlineRegex: NSRegularExpression?
+        let newlineRegex: RegularExpression?
         do {
-            newlineRegex = try NSRegularExpression(
+            newlineRegex = try RegularExpression(
                         pattern: "^\\n",
-                        options: NSRegularExpressionOptions.AnchorsMatchLines)
+                        options: RegularExpression.Options.anchorsMatchLines)
         } catch {
             XCTAssertNil(error)
             newlineRegex = nil
         }
-        str = newlineRegex!.stringByReplacingMatchesInString(str as String, options: NSMatchingOptions(rawValue: 0), range: NSMakeRange(0, str.length), withTemplate: "")
+        str = newlineRegex!.stringByReplacingMatches(in: str as String, options: RegularExpression.MatchingOptions(rawValue: 0), range: NSMakeRange(0, str.length), withTemplate: "")
     
         // remove leading space at the start of lines
-        let leadingSpaceRegex: NSRegularExpression?
+        let leadingSpaceRegex: RegularExpression?
         do {
-            leadingSpaceRegex = try NSRegularExpression(
+            leadingSpaceRegex = try RegularExpression(
                         pattern: "^\\s+",
-                        options: NSRegularExpressionOptions.AnchorsMatchLines)
+                        options: RegularExpression.Options.anchorsMatchLines)
         } catch {
             XCTAssertNil(error)
             leadingSpaceRegex = nil
         };
-        str = leadingSpaceRegex!.stringByReplacingMatchesInString(str as String, options: NSMatchingOptions(rawValue: 0), range: NSMakeRange(0, str.length), withTemplate: "")
+        str = leadingSpaceRegex!.stringByReplacingMatches(in: str as String, options: RegularExpression.MatchingOptions(rawValue: 0), range: NSMakeRange(0, str.length), withTemplate: "")
     
         // remove all newlines
-        str = str.stringByReplacingOccurrencesOfString("\n", withString: "")
+        str = str.replacingOccurrences(of: "\n", with: "")
     
         return str as String
     }
